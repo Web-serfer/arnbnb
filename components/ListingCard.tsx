@@ -58,55 +58,25 @@ const ListingCard = ({
   actionId = '',
   disabled,
 }: ListingCardProps) => {
-  console.log(
-    `[ListingCard] ID: ${data?._id || 'НЕТ ID'}, Рендер/Перерендер. Получены data:`,
-    JSON.parse(
-      JSON.stringify(
-        data || { ошибка: 'ПРОП DATA ОТСУТСТВУЕТ (null или undefined)' }
-      )
-    )
-  );
-
   const router = useRouter();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  // --- Начальная проверка на существование data ---
+  // Блок обработки отсутствующих данных
   if (!data) {
-    console.error(
-      '[ListingCard] КРИТИЧЕСКАЯ ОШИБКА: Проп "data" отсутствует (undefined или null). Рендеринг прерван.'
-    );
-    // Возвращаем заглушку, чтобы избежать падения всего приложения
     return (
       <div className="col-span-1 p-4 border border-red-500 rounded-xl bg-red-50">
-        <p className="text-red-600 font-semibold">
-          Ошибка отображения карточки
-        </p>
+        <p className="text-red-600 font-semibold">Listing display error</p>
         <p className="text-xs text-neutral-600">
-          Данные для этого объявления не были получены. Проверьте консоль
-          разработчика (ListingCard).
+          No listing data was received.
         </p>
       </div>
     );
   }
 
-  // --- Проверка ключевых полей в data, если data существует ---
-  if (!data._id) {
-    console.warn(
-      `[ListingCard] ВНИМАНИЕ: У объекта "data" отсутствует свойство "_id". Это может вызвать проблемы с навигацией или кнопкой "HeartButton". Текущие data:`,
-      JSON.parse(JSON.stringify(data))
-    );
-    // Если _id критичен, можно здесь тоже вернуть заглушку или специальное состояние.
-  }
-
+  // Обработчики событий
   const handleCardClick = useCallback(() => {
-    if (!data._id) {
-      console.error(
-        '[ListingCard] Ошибка навигации: data._id отсутствует. Навигация невозможна.'
-      );
-      return;
-    }
     router.push(`/listings/${data._id}`);
-  }, [router, data._id]); // Зависимость от data._id важна
+  }, [router, data._id]);
 
   const handleCancel = useCallback(
     (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -117,27 +87,19 @@ const ListingCard = ({
     [disabled, onAction, actionId]
   );
 
-  // Безопасное получение imageSrc
+  // Блок работы с изображениями
   const safeImageSrc = useMemo(() => {
     if (!data.imageSrc || !Array.isArray(data.imageSrc)) {
-      console.warn(
-        `[ListingCard] ID: ${data._id || 'НЕТ ID'}, data.imageSrc отсутствует или не является массивом. Используется placeholder. data.imageSrc:`,
-        data.imageSrc
-      );
       return [];
     }
     return data.imageSrc;
-  }, [data._id, data.imageSrc]);
+  }, [data.imageSrc]);
 
   const handleImageNavigation = useCallback(
     (direction: 'prev' | 'next') => (e: React.MouseEvent) => {
       e.stopPropagation();
-      if (safeImageSrc.length === 0) {
-        console.warn(
-          `[ListingCard] ID: ${data._id || 'НЕТ ID'}, Попытка навигации по изображениям, но safeImageSrc пуст.`
-        );
-        return;
-      }
+      if (safeImageSrc.length === 0) return;
+
       setCurrentImageIndex((prev) => {
         if (direction === 'next') {
           return prev === safeImageSrc.length - 1 ? 0 : prev + 1;
@@ -146,81 +108,50 @@ const ListingCard = ({
         }
       });
     },
-    [safeImageSrc.length, data._id]
+    [safeImageSrc.length]
   );
 
-  // --- Вычисление цены с логгированием и защитой ---
-  const displayPrice = useMemo(() => {
-    if (data.price === undefined) {
-      // СТРОГАЯ ПРОВЕРКА НА UNDEFINED
-      console.warn(
-        `[ListingCard] ID: ${data._id || 'НЕТ ID'}, ВНИМАНИЕ: data.price === undefined. Будет использовано значение 0 или totalPrice из reservation. Текущие data:`,
-        JSON.parse(JSON.stringify(data)),
-        `Reservation:`,
-        reservation
-      );
-    }
-    return reservation ? reservation.totalPrice : (data.price ?? 0); // Используем ?? для обработки null и undefined
-  }, [reservation, data.price, data._id]);
+  // Блок работы с ценами
+  const displayPrice = useMemo(
+    () => (reservation ? reservation.totalPrice : (data.price ?? 0)),
+    [reservation, data.price]
+  );
 
   const priceLabel = useMemo(
-    () => (reservation ? '' : 'за ночь'),
+    () => (reservation ? '' : 'per night'),
     [reservation]
   );
 
-  // --- Даты резервации ---
+  // Блок работы с датами
   const reservationDateRange = useMemo(() => {
     if (!reservation) return null;
     try {
       const start = new Date(reservation.startDate);
       const end = new Date(reservation.endDate);
-      // Проверка на валидность дат перед форматированием
-      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-        console.error(
-          `[ListingCard] ID: ${data._id || 'НЕТ ID'}, Невалидные даты в reservation:`,
-          reservation
-        );
-        return 'Некорректные даты';
-      }
-      return `${format(start, 'PP')} - ${format(end, 'PP')}`; // Убедитесь, что локаль для format настроена
-    } catch (error) {
-      console.error(
-        `[ListingCard] ID: ${data._id || 'НЕТ ID'}, Ошибка форматирования дат резервации:`,
-        error,
-        reservation
-      );
-      return 'Ошибка дат';
+      return `${format(start, 'PP')} - ${format(end, 'PP')}`;
+    } catch {
+      return null;
     }
-  }, [reservation, data._id]);
+  }, [reservation]);
 
-  // --- Текст местоположения с защитой ---
-  const locationText = useMemo(() => {
-    if (!data.locationValue) {
-      console.warn(
-        `[ListingCard] ID: ${data._id || 'НЕТ ID'}, ВНИМАНИЕ: data.locationValue отсутствует. Будет использован текст по умолчанию. Текущие data:`,
-        JSON.parse(JSON.stringify(data))
-      );
-      return 'Местоположение не указано';
-    }
-    return `${data.locationValue.region ? `${data.locationValue.region}, ` : ''}${data.locationValue.label || 'Название места отсутствует'}`;
-  }, [data.locationValue, data._id]);
+  // Блок работы с локацией
+  const locationText = useMemo(
+    () =>
+      data.locationValue
+        ? `${data.locationValue.region ? `${data.locationValue.region}, ` : ''}${data.locationValue.label || ''}`
+        : 'Location not specified',
+    [data.locationValue]
+  );
 
-  // --- Текст удобств с защитой ---
-  const amenitiesText = useMemo(() => {
-    if (data.roomCount === undefined || data.bathroomCount === undefined) {
-      console.warn(
-        `[ListingCard] ID: ${data._id || 'НЕТ ID'}, ВНИМАНИЕ: data.roomCount (${data.roomCount}) или data.bathroomCount (${data.bathroomCount}) отсутствуют. Будут использованы значения по умолчанию (0). Текущие data:`,
-        JSON.parse(JSON.stringify(data))
-      );
-    }
-    return `${data.roomCount ?? 0} комнат · ${data.bathroomCount ?? 0} ванных`;
-  }, [data.roomCount, data.bathroomCount, data._id]);
+  // Блок работы с удобствами
+  const amenitiesText = useMemo(
+    () => `${data.roomCount ?? 0} rooms · ${data.bathroomCount ?? 0} baths`,
+    [data.roomCount, data.bathroomCount]
+  );
 
-  const currentImageUrl = useMemo(() => {
-    const url = safeImageSrc[currentImageIndex] || '/images/placeholder.jpg';
-    return url;
-  }, [safeImageSrc, currentImageIndex]);
-
+  // Текущее изображение и управление галереей
+  const currentImageUrl =
+    safeImageSrc[currentImageIndex] || '/images/placeholder.jpg';
   const hasMultipleImages = safeImageSrc.length > 1;
   const imageCounterText = hasMultipleImages
     ? `${currentImageIndex + 1}/${safeImageSrc.length}`
@@ -231,25 +162,18 @@ const ListingCard = ({
       onClick={handleCardClick}
       className="col-span-1 cursor-pointer group"
       role="button"
-      aria-label={`Посмотреть объявление ${data.title || 'Без названия'}`} // Защита для data.title
+      aria-label={`View listing ${data.title || 'Untitled'}`}
       tabIndex={0}
     >
       <div className="flex flex-col gap-2 w-full">
         <div className="aspect-square w-full relative overflow-hidden rounded-xl">
           <Image
             src={currentImageUrl}
-            alt={`${data.title || 'Объявление'} - Изображение ${currentImageIndex + 1}`} // Защита для data.title
+            alt={`${data.title || 'Listing'} - Image ${currentImageIndex + 1}`}
             fill
             className="object-cover h-full w-full group-hover:scale-110 transition"
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             priority={currentImageIndex === 0}
-            onError={(e) => {
-              console.error(
-                `[ListingCard] ID: ${data._id || 'НЕТ ID'}, Ошибка загрузки Image src: ${currentImageUrl}`,
-                e
-              );
-              // Можно попытаться установить другой src или скрыть изображение
-            }}
           />
 
           {hasMultipleImages && (
@@ -257,14 +181,14 @@ const ListingCard = ({
               <button
                 onClick={handleImageNavigation('prev')}
                 className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 text-white p-2 rounded-full z-10 hover:bg-black/50 transition"
-                aria-label="Предыдущее изображение"
+                aria-label="Previous image"
               >
                 <AiOutlineLeft size={20} />
               </button>
               <button
                 onClick={handleImageNavigation('next')}
                 className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 text-white p-2 rounded-full z-10 hover:bg-black/50 transition"
-                aria-label="Следующее изображение"
+                aria-label="Next image"
               >
                 <AiOutlineRight size={20} />
               </button>
@@ -275,19 +199,13 @@ const ListingCard = ({
           )}
 
           <div className="absolute top-3 right-3 z-10">
-            {data._id ? (
-              <HeartButton listingId={data._id} currentUser={currentUser} />
-            ) : (
-              console.warn(
-                `[ListingCard] HeartButton не рендерится, так как data._id (${data._id}) отсутствует.`
-              )
-            )}
+            <HeartButton listingId={data._id} currentUser={currentUser} />
           </div>
 
           {data.hasPool && (
             <div className="absolute bottom-3 left-3 bg-white/90 px-2 py-1 rounded-md flex items-center gap-1 z-10">
               <AiFillStar className="text-amber-400" />
-              <span className="text-xs font-semibold">Бассейн</span>
+              <span className="text-xs font-semibold">Pool</span>
             </div>
           )}
         </div>
@@ -299,14 +217,12 @@ const ListingCard = ({
         </div>
 
         <div className="text-neutral-500 text-sm">
-          {reservationDateRange || data.category || 'Категория не указана'}{' '}
-          {/* Защита для data.category */}
+          {reservationDateRange || data.category || 'No category specified'}
         </div>
 
         <div className="flex items-center justify-between">
           <div className="font-semibold flex items-center gap-1">
             $ {displayPrice}
-            {/* Показываем "за ночь" только если это не резервация И цена была изначально определена (не undefined) */}
             {priceLabel && data.price !== undefined && (
               <span className="font-light text-sm">{priceLabel}</span>
             )}

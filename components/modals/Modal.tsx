@@ -1,8 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { IoMdClose } from 'react-icons/io';
-import Button from '../Button';
+import Button from '../Button'; // Убедитесь, что путь к компоненту Button верный
 import { IconType } from 'react-icons';
 
 interface ModalProps {
@@ -16,7 +16,7 @@ interface ModalProps {
   disabled?: boolean;
   secondaryAction?: () => void;
   secondaryActionLabel?: string;
-  actionIcon?: IconType;
+  actionIcon?: IconType; // Этот проп не используется в текущей реализации, но оставлен
 }
 
 const Modal: React.FC<ModalProps> = ({
@@ -32,6 +32,7 @@ const Modal: React.FC<ModalProps> = ({
   secondaryActionLabel,
 }) => {
   const [showModal, setShowModal] = useState(isOpen);
+  const modalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setShowModal(isOpen);
@@ -52,10 +53,88 @@ const Modal: React.FC<ModalProps> = ({
     [disabled, onSubmit]
   );
 
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        handleClose();
+      }
+
+      if (event.key === 'Tab' && modalRef.current && isOpen && showModal) {
+        const focusableElements = Array.from(
+          modalRef.current.querySelectorAll<HTMLElement>(
+            'a[href]:not([disabled]), button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+          )
+        ).filter((el) => el.offsetParent !== null);
+
+        if (focusableElements.length === 0) return;
+
+        const firstElement = focusableElements[0];
+        const lastElement = focusableElements[focusableElements.length - 1];
+
+        if (event.shiftKey) {
+          if (document.activeElement === firstElement) {
+            lastElement.focus();
+            event.preventDefault();
+          }
+        } else {
+          if (document.activeElement === lastElement) {
+            firstElement.focus();
+            event.preventDefault();
+          }
+        }
+      }
+    };
+
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+      document.addEventListener('keydown', handleKeyDown);
+
+      if (showModal) {
+        setTimeout(() => {
+          if (modalRef.current) {
+            const closeButton =
+              modalRef.current.querySelector<HTMLButtonElement>(
+                '.modal-close-button'
+              );
+            if (closeButton && closeButton.offsetParent !== null) {
+              closeButton.focus();
+            } else {
+              const focusableContent = Array.from(
+                modalRef.current.querySelectorAll<HTMLElement>(
+                  'a[href]:not([disabled]), button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+                )
+              ).filter(
+                (el) =>
+                  el.offsetParent !== null &&
+                  !el.classList.contains('modal-close-button')
+              );
+
+              if (focusableContent.length > 0) {
+                focusableContent[0].focus();
+              }
+            }
+          }
+        }, 50);
+      }
+    } else {
+      document.body.style.overflow = '';
+      document.removeEventListener('keydown', handleKeyDown);
+    }
+
+    return () => {
+      document.body.style.overflow = '';
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, showModal, handleClose]);
+
   if (!isOpen) return null;
 
   return (
     <div
+      ref={modalRef}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={title ? 'modal-title-id' : undefined}
       className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overflow-x-hidden bg-neutral-800/70 outline-none focus:outline-none"
       onClick={handleClose}
     >
@@ -73,9 +152,11 @@ const Modal: React.FC<ModalProps> = ({
           <div className="relative flex max-h-[90vh] flex-col rounded-lg border-0 bg-white shadow-lg outline-none focus:outline-none">
             {/* Header */}
             <div className="relative flex items-center justify-center rounded-t border-b-[1px] p-6">
-              <h3 className="text-lg font-semibold">{title}</h3>
+              <h3 id="modal-title-id" className="text-lg font-semibold">
+                {title}
+              </h3>
               <button
-                className="absolute right-9 rounded-full p-2 transition hover:bg-neutral-100 active:scale-95"
+                className="modal-close-button absolute right-9 rounded-full p-2 transition hover:bg-neutral-100 active:scale-95"
                 onClick={handleClose}
                 aria-label="Close"
               >
@@ -88,19 +169,23 @@ const Modal: React.FC<ModalProps> = ({
 
             {/* Footer */}
             <div className="flex flex-col gap-2 p-6">
-              <div className="flex w-full items-center justify-end gap-4">
+              {/* Контейнер для кнопок действий */}
+              <div className="flex w-full flex-col gap-2">
                 {secondaryAction && secondaryActionLabel && (
                   <Button
                     outline
                     label={secondaryActionLabel}
                     onClick={secondaryAction}
                     disabled={disabled}
+                    className="w-full"
                   />
                 )}
+
                 <Button
                   label={actionLabel}
                   onClick={handleSubmit}
                   disabled={disabled}
+                  className="w-full"
                 />
               </div>
               {footer}

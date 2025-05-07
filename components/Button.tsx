@@ -40,13 +40,11 @@ const Button: React.FC<ButtonProps> = ({
         focus:outline-none
         focus:ring-2
         focus:ring-offset-2
-        ${/* Стили в зависимости от пропа 'outline' */ ''}
         ${
           outline
             ? 'bg-white border-neutral-300 text-neutral-700 hover:bg-neutral-50 focus:ring-neutral-400'
             : 'bg-rose-500 border-rose-500 text-white hover:bg-rose-600 focus:ring-rose-500'
         }
-        ${/* Стили в зависимости от пропа 'small' */ ''}
         ${
           small
             ? 'text-sm py-1 px-2 font-light border-[1px]'
@@ -55,7 +53,6 @@ const Button: React.FC<ButtonProps> = ({
         ${className}
       `}
     >
-      {/* Отображение иконки, если она передана */}
       {Icon && <Icon size={small ? 18 : 24} />}
       {label}
     </button>

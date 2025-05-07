@@ -10,152 +10,135 @@ import Modal from './Modal';
 import Heading from '../Heading';
 import Input from '../inputs/Input';
 import Button from '../Button';
-import { CredentialsSignInCallback, signIn } from 'next-auth/react';
+import { signIn, SignInResponse } from 'next-auth/react';
 import { FcGoogle } from 'react-icons/fc';
 import { BsGithub } from 'react-icons/bs';
 import { useRouter } from 'next/navigation';
 
-interface InputField {
-  id: string;
+// Конфигурация полей формы входа
+const LOGIN_FIELDS: Array<{
+  id: keyof FieldValues;
   label: string;
   type: 'email' | 'password';
-  validation: { required: string; [key: string]: any };
-  pattern?: { value: RegExp; message: string };
-  minLength?: { value: number; message: string };
-}
+  validation: Record<string, unknown>;
+}> = [
+  {
+    id: 'email',
+    label: 'Email',
+    type: 'email',
+    validation: {
+      required: 'Email is required',
+      pattern: {
+        value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+        message: 'Invalid email address',
+      },
+    },
+  },
+  {
+    id: 'password',
+    label: 'Password',
+    type: 'password',
+    validation: {
+      required: 'Password is required',
+      minLength: {
+        value: 6,
+        message: 'Password must be at least 6 characters',
+      },
+    },
+  },
+];
 
+// Компонент LoginModal отвечает за функциональность входа пользователя.
 const LoginModal = () => {
   const router = useRouter();
   const loginModal = useLoginModalStore();
   const registerModal = useRegisterModalStore();
   const [isLoading, setIsLoading] = useState(false);
 
+  // Инициализация react-hook-form для управления формой и валидации, с режимом 'onBlur'.
   const {
     register,
     handleSubmit,
     formState: { errors, touchedFields },
-    reset,
   } = useForm<FieldValues>({
-    defaultValues: {
-      email: '',
-      password: '',
-    },
+    defaultValues: { email: '', password: '' },
     mode: 'onBlur',
   });
 
-  // Обработчик входа
-  const onSubmit: SubmitHandler<FieldValues> = async (data) => {
-    setIsLoading(true);
-
-    try {
-      const callback = (await signIn('credentials', {
-        ...data,
-        redirect: false,
-      })) as CredentialsSignInCallback;
-
-      if (callback?.error) {
-        console.error('Authentication error:', callback.error);
-        toast.error(
-          typeof callback.error === 'string'
-            ? callback.error
-            : callback.error.message || 'Authentication failed'
-        );
-      }
-
-      if (callback?.ok) {
-        toast.success('Logged in');
-        router.refresh();
-        loginModal.onClose();
-      }
-    } catch (error: any) {
-      console.error('Unexpected error during sign in:', error);
-      toast.error(error?.message || 'Something went wrong');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Общий обработчик входа через социальные сети
-  const handleSocialSignIn = useCallback(
-    async (provider: 'google' | 'github') => {
+  // Обрабатывает отправку формы для входа по email/паролю.
+  const onSubmit: SubmitHandler<FieldValues> = useCallback(
+    async (credentials) => {
       setIsLoading(true);
 
       try {
-        await signIn(provider, { callbackUrl: '/' });
-        loginModal.onClose();
-      } catch (error: any) {
-        console.error(`Error during ${provider} sign in:`, error);
-        toast.error(error?.message || 'Something went wrong');
+        const response: SignInResponse | undefined = await signIn(
+          'credentials',
+          {
+            ...credentials,
+            redirect: false,
+          }
+        );
+
+        if (response?.error) {
+          throw new Error(response.error);
+        }
+
+        if (response?.ok) {
+          toast.success('Logged in');
+          router.refresh();
+          loginModal.onClose();
+        }
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : 'Authentication failed';
+        toast.error(errorMessage);
       } finally {
         setIsLoading(false);
       }
     },
-    [loginModal.onClose, setIsLoading]
+    [loginModal, router]
   );
 
-  // Обработчик входа через Google
-  const onGoogleClick = () => {
-    handleSocialSignIn('google');
-  };
-  // Обработчик входа через Github
-  const onGithubClick = () => {
-    handleSocialSignIn('github');
-  };
-
-  // Поля ввода только для логина
-  const inputFields: InputField[] = [
-    {
-      id: 'email',
-      label: 'Email',
-      type: 'email',
-      validation: {
-        required: 'Email is required',
-        pattern: {
-          value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-          message: 'Invalid email address',
-        },
-      },
+  // Обрабатывает логику входа через социальные сети для различных провайдеров (Google, GitHub).
+  const handleSocialSignIn = useCallback(
+    (provider: 'google' | 'github') => async () => {
+      setIsLoading(true);
+      try {
+        await signIn(provider, { callbackUrl: '/' });
+        loginModal.onClose();
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : 'Social sign-in failed';
+        toast.error(errorMessage);
+      } finally {
+        setIsLoading(false);
+      }
     },
-    {
-      id: 'password',
-      label: 'Password',
-      type: 'password',
-      validation: { required: 'Password is required' },
-      minLength: {
-        value: 6,
-        message: 'Password must be at least 6 characters',
-      },
-    },
-  ];
-
-  // Контент тела модального окна
-  const BodyContent = useMemo(
-    () => (
-      <div className="flex flex-col gap-4">
-        <Heading title="Welcome back" subtitle="Login to your account!" />
-        {inputFields.map((input) => (
-          <Input
-            key={input.id}
-            id={input.id}
-            label={input.label}
-            type={input.type}
-            register={register}
-            error={errors[input.id]?.message}
-            disabled={isLoading}
-            required
-            validation={input.validation}
-            isError={!!errors[input.id] && !!touchedFields[input.id]}
-            pattern={input.pattern}
-            minLength={input.minLength}
-          />
-        ))}
-      </div>
-    ),
-    [errors, inputFields, isLoading, register, touchedFields]
+    [loginModal]
   );
 
-  // Контент футера модального окна
-  const FooterContent = useMemo(
+  // Мемоизированный рендеринг полей ввода формы на основе конфигурации LOGIN_FIELDS.
+  const formFields = useMemo(
+    () =>
+      LOGIN_FIELDS.map((field) => (
+        <Input
+          key={field.id}
+          id={field.id}
+          label={field.label}
+          type={field.type}
+          register={register}
+          error={errors[field.id]?.message as string | undefined}
+          disabled={isLoading}
+          required
+          validation={field.validation}
+          isError={!!errors[field.id] && !!touchedFields[field.id]}
+        />
+      )),
+    [errors, isLoading, register, touchedFields]
+  );
+
+  // Мемоизированный рендеринг футера модального окна, включая кнопки входа через соцсети и ссылку на модальное окно регистрации.
+  const modalFooter = useMemo(
     () => (
       <div className="mt-3 flex flex-col gap-2">
         <div className="flex flex-col gap-2">
@@ -163,42 +146,40 @@ const LoginModal = () => {
             outline
             label="Sign in with Google"
             icon={FcGoogle}
-            onClick={onGoogleClick}
+            onClick={handleSocialSignIn('google')}
             disabled={isLoading}
+            className="w-full"
           />
           <Button
             outline
             label="Sign in with Github"
             icon={BsGithub}
-            onClick={onGithubClick}
+            onClick={handleSocialSignIn('github')}
             disabled={isLoading}
+            className="w-full"
           />
         </div>
+
         <div className="mt-4 text-center">
           <span className="text-sm text-gray-500">
-            Don't have an account?
-            <span
+            Don't have an account?{' '}
+            <button
               onClick={() => {
                 loginModal.onClose();
                 registerModal.onOpen();
               }}
-              className="ml-1 cursor-pointer text-sm text-black transition-colors hover:text-gray-700 hover:underline"
+              className="cursor-pointer text-black transition-colors hover:text-gray-700 hover:underline"
             >
               Sign up
-            </span>
+            </button>
           </span>
         </div>
       </div>
     ),
-    [
-      isLoading,
-      onGoogleClick,
-      onGithubClick,
-      loginModal.onClose,
-      registerModal.onOpen,
-    ]
+    [handleSocialSignIn, isLoading, loginModal, registerModal]
   );
 
+  // Рендерит компонент Modal, передавая необходимые пропсы для отображения и функциональности.
   return (
     <Modal
       disabled={isLoading}
@@ -207,8 +188,17 @@ const LoginModal = () => {
       actionLabel="Continue"
       onClose={loginModal.onClose}
       onSubmit={handleSubmit(onSubmit)}
-      body={BodyContent}
-      footer={FooterContent}
+      body={
+        <div className="flex flex-col gap-4">
+          <Heading
+            title="Welcome back"
+            subtitle="Login to your account!"
+            center
+          />
+          {formFields}
+        </div>
+      }
+      footer={modalFooter}
     />
   );
 };
