@@ -16,7 +16,7 @@ interface ModalProps {
   disabled?: boolean;
   secondaryAction?: () => void;
   secondaryActionLabel?: string;
-  actionIcon?: IconType; // Этот проп не используется в текущей реализации, но оставлен
+  actionIcon?: IconType;
 }
 
 const Modal: React.FC<ModalProps> = ({
