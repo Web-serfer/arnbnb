@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* убираем скролл для Categories */
+.scrollbar-hide {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+/* Скрыть скроллбар в WebKit-браузерах (Chrome, Safari, Edge) */
+.react-select__menu::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  background: transparent; /* Прозрачный фон */
+}
+
+/* Скрыть скроллбар в Firefox */
+.react-select__menu {
+  scrollbar-width: none;
+}
+
+/* map */
+
+.leaflet-bottom,
+.leaflet-control,
+.leaflet-pane,
+.leaflet-top {
+  z-index: 0 !important;
+}
