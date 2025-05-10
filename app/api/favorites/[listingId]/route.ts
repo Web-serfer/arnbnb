@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/actions/getCurrentUser';
-import { SafeUser } from '@/types';
 import prisma from '@/lib/prismadb';
 
 interface IParams {

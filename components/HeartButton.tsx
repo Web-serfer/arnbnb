@@ -39,9 +39,7 @@ const HeartButton: React.FC<HeartButtonProps> = ({
       role="button"
       tabIndex={0}
       aria-pressed={hasFavorited}
-      aria-label={
-        hasFavorited ? 'Удалить из избранного' : 'Добавить в избранное'
-      }
+      aria-label={hasFavorited ? 'Remove from favorites' : 'Add to favorites'}
       className={`
         relative
         hover:opacity-80
@@ -61,7 +59,7 @@ const HeartButton: React.FC<HeartButtonProps> = ({
         "
       />
 
-      {/* Основное сердце с цветом в зависимости от состояния */}
+      {/* Основное сердце */}
       <AiFillHeart
         size={24}
         className={hasFavorited ? 'fill-rose-500' : 'fill-neutral-500/70'}

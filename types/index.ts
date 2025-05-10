@@ -1,6 +1,6 @@
-// types/index.ts
-import { User } from '@prisma/client'; // Если Prisma генерирует типы
+import { User, Listing } from '@prisma/client';
 
+// SafeUser
 export type SafeUser = Omit<
   User,
   'hashedPassword' | 'createdAt' | 'updatedAt' | 'emailVerified'
@@ -8,4 +8,10 @@ export type SafeUser = Omit<
   createdAt: string;
   updatedAt: string;
   emailVerified: string | null;
+};
+
+// SafeListing
+export type SafeListing = Omit<Listing, 'createdAt' | 'updatedAt'> & {
+  createdAt: string;
+  updatedAt: string;
 };

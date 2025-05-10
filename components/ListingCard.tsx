@@ -73,7 +73,7 @@ const ListingCard = ({
     );
   }
 
-  // Обработчики событий
+  // Обработчики клика по карточке
   const handleCardClick = useCallback(() => {
     router.push(`/listings/${data._id}`);
   }, [router, data._id]);
